@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Log Levels</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script type="text/javascript">
+            (function () {
+                var get = function (url, success, failure) {
+                    var req = new XMLHttpRequest();
+                    req.onreadystatechange = function () {
+                        if (req.readyState === XMLHttpRequest.DONE) {
+                            if (req.status === 200) {
+                                success(req.responseText);
+                            } else {
+                                if (failure !== undefined)
+                                    failure(req.responseText);
+                            }
+                        }
+                    };
+                    if (!document.location.pathname.endsWith("/"))
+                        url = document.location.pathname + "/" + url;
+                    req.open("GET", url, true);
+                    req.send();
+                };
+
+                var tree = function (text) {
+                    var json = JSON.parse(text);
+                    var root = {"@": "ROOT"};
+                    for (var key in json) {
+                        var place = root;
+                        var path = "";
+                        if (key === "ROOT") {
+                            path = "ROOT";
+                        } else {
+                            var parts = key.split(".");
+                            for (var i in parts) {
+                                var part = parts[i];
+                                if (path === "")
+                                    path = part;
+                                else
+                                    path = path + "." + part;
+                                if (!(part in place)) {
+                                    place[part] = {"@": path};
+                                }
+                                place = place[part];
+                            }
+                        }
+                        place["#"] = json[key] === null ? null : json[key].toLowerCase();
+                    }
+                    return {"*": root};
+                };
+                var updateFromUrl = (function () {
+                    var indexOf = {
+                        null: 0,
+                        "trace": 1,
+                        "debug": 2,
+                        "info": 3,
+                        "warn": 4,
+                        "error": 5
+                    };
+
+                    var addOption = function (sel, value, name) {
+                        if (name === undefined)
+                            name = value;
+                        var opt = document.createElement("OPTION");
+                        opt.setAttribute("value", value);
+                        opt.appendChild(document.createTextNode(name));
+                        sel.appendChild(opt);
+                    };
+                    var buildDtDd = function (element, before, key, id, defaultValue) {
+                        var child = document.createElement("DT");
+                        child.setAttribute("id", id);
+                        element.insertBefore(child, before);
+                        element.insertBefore(document.createElement("DD"), before);
+                        var sel = document.createElement("SELECT");
+                        sel.setAttribute("data-logger", id.substr(1));
+
+                        sel.onchange = function () {
+                            var logger = this.getAttribute("data-logger");
+                            var level = this.value.toUpperCase();
+                            updateFromUrl("level?logger=" + escape(logger) + "&level=" + escape(level));
+                        };
+                        child.appendChild(sel);
+                        if (defaultValue !== undefined)
+                            addOption(sel, "", "[" + defaultValue + "]");
+                        addOption(sel, "trace");
+                        addOption(sel, "debug");
+                        addOption(sel, "info");
+                        addOption(sel, "warn");
+                        addOption(sel, "error");
+                        child.appendChild(document.createTextNode(" " + key + " "));
+                        return child;
+                    };
+                    var buildList = function (tree, element, defaultLevel) {
+                        var keys = [];
+                        for (var key in tree) {
+                            if (key === "#" || key === "@")
+                                continue;
+                            keys.push(key);
+                        }
+                        keys.sort();
+                        var child = element.firstChild;
+                        for (var i in keys) {
+                            var key = keys[i];
+                            var id = "@" + tree[key]["@"];
+                            if (child !== null) {
+                                while (child !== null && child.tagName !== 'TD' && child.id < id) {
+                                    var childNext = child.nextSibling;
+                                    element.removeChild(child);
+                                    child = childNext;
+                                }
+                            }
+                            if (child === null || child.id !== id) {
+                                child = buildDtDd(element, child, key, id, defaultLevel);
+                            }
+                            var subLevel = defaultLevel;
+                            if (tree['#'] !== null)
+                                subLevel = tree['#'];
+                            buildList(tree[key], child.nextSibling, subLevel);
+                            child = child.nextSibling.nextSibling;
+                        }
+                        if ('#' in tree) {
+                            var sel = element.previousSibling.firstChild;
+                            var idx = indexOf[tree['#']];
+                            if (defaultLevel === undefined) {
+                                idx--;
+                            } else {
+                                var option = sel.firstChild;
+                                while (option.firstChild !== null)
+                                    option.removeChild(option.firstChild);
+                                option.appendChild(document.createTextNode("[" + defaultLevel + "]"));
+                            }
+                            sel.selectedIndex = idx;
+                            if (tree['#'] === null)
+                                sel.classList.add("is-default");
+                            else
+                                sel.classList.remove("is-default");
+                        }
+                    };
+
+                    return function (url) {
+                        var element = document.getElementById("tree");
+                        get(url, function (t) {
+                            buildList(tree(t), element);
+                        }, alert);
+                    };
+                })();
+                window.addEventListener("load", (function () {
+                    return function () {
+                        updateFromUrl("levels");
+                    };
+                })());
+            })();
+        </script>
+        <style type="text/css">
+            select {
+                background-color: transparent;
+            }
+            select.is-default {
+                color: lightgray;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Log Levels</h1>
+        <dl id="tree"></dl>
+    </body>
+</html>
