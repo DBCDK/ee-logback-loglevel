@@ -50,6 +50,8 @@ public class LogLevelRemoteAccess {
 
     private static final Logger log = LoggerFactory.getLogger(LogLevelRemoteAccess.class);
 
+    private static final long IPV4_MAX = 0xffffffffL;
+
     private List<IPRange> allowedProxyIpRanges;
     private List<IPRange> allowedAdminIpRanges;
 
@@ -146,7 +148,7 @@ public class LogLevelRemoteAccess {
         } else if (hosts.contains("/")) {
             String[] parts = hosts.split("/", 2);
             long ip = ipOf(parts[0]);
-            long net = ( 0xffffffff << ( 32 - Integer.parseInt(parts[1]) ) ) & 0xffffffff;
+            long net = ( IPV4_MAX << ( 32 - Integer.parseInt(parts[1]) ) ) & IPV4_MAX;
             return new IPRange(ip & net, ip | ~net);
         } else {
             long ip = ipOf(hosts);
@@ -164,7 +166,7 @@ public class LogLevelRemoteAccess {
         if (addr.contains(".")) {
             return Arrays.stream(addr.split("\\.")).mapToInt(Integer::parseUnsignedInt).reduce(0, (l, r) -> ( l << 8 ) + r);
         } else {
-            return 0xffffffff;
+            return IPV4_MAX;
         }
     }
 
