@@ -20,6 +20,7 @@ package dk.dbc.logback.admin;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
+import dk.dbc.remoteadminaccess.RequiresAdmin;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Locale;
@@ -51,109 +52,62 @@ import static javax.ws.rs.core.Response.Status.*;
 @Path("log-level")
 @Stateless
 @LocalBean
+@RequiresAdmin
 public class LogLevelAdminBean {
 
     private static final Logger log = LoggerFactory.getLogger(LogLevelAdminBean.class);
 
-    @EJB
-    LogLevelRemoteAccess remoteAccess;
-
     /**
      * Provide a html page with the needed JavaScript embedded
      *
-     * @param headers     Request meta data
-     * @param httpRequest Request meta data
      * @return UNAUTHORIZED or a html index page
      */
     @GET
-    public Response indexHtml(@Context HttpHeaders headers,
-                              @Context HttpServletRequest httpRequest) {
-        String remoteIp = remoteAccess.remoteIp(headers, httpRequest);
-        log.debug("remoteIp = {}", remoteIp);
-        if (remoteAccess.isAdminIp(remoteIp)) {
-            InputStream is = getClass().getClassLoader()
-                    .getResourceAsStream("LogLevelAdminBean-loglevel.html");
-            if (is == null) // This is really messed up - our own resource not present
-                return Response.status(NOT_FOUND)
-                        .build();
-            return Response.ok(is)
-                    .type(MediaType.TEXT_HTML_TYPE)
+    public Response indexHtml() {
+        InputStream is = getClass().getClassLoader()
+                .getResourceAsStream("LogLevelAdminBean-loglevel.html");
+        if (is == null) // This is really messed up - our own resource is not present
+            return Response.status(NOT_FOUND)
                     .build();
-        } else {
-            log.warn("Access to loglevel tried from: {}", remoteIp);
-            return Response.status(UNAUTHORIZED)
-                    .build();
-        }
+        return Response.ok(is)
+                .type(MediaType.TEXT_HTML_TYPE)
+                .build();
     }
 
     /**
      * Set a log-level
      *
-     * @param headers     Request meta data
-     * @param httpRequest Request meta data
-     * @param logger      name of logger to change (required)
-     * @param level       level to set it to (missing or empty string for
-     *                    inherited)
+     * @param logger name of logger to change (required)
+     * @param level  level to set it to (missing or empty string for
+     *               inherited)
      * @return {@link #loglevels()}
      */
     @Path("level")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Response loglevel(@Context HttpHeaders headers,
-                             @Context HttpServletRequest httpRequest,
-                             @QueryParam("logger") String logger,
+    public Response loglevel(@QueryParam("logger") String logger,
                              @QueryParam("level") String level) {
-        String remoteIp = remoteAccess.remoteIp(headers, httpRequest);
-        log.trace("remoteIp = {}", remoteIp);
-        if (remoteAccess.isAdminIp(remoteIp)) {
-            if (logger == null || logger.isEmpty()) {
-                return Response.status(BAD_REQUEST)
-                        .entity("logger is a required query parameter")
-                        .build();
-            }
-            log.info("ip: {} is setting logger: {} to: {}", remoteIp, logger, level);
-            LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
-            context.getLogger(logger).setLevel(level == null || level.isEmpty() ? null :
-                                               Level.valueOf(level.toUpperCase(Locale.ROOT)));
-            return loglevels();
-        } else {
-            log.warn("Access to loglevel tried from: {}", remoteIp);
-            return Response.status(UNAUTHORIZED)
+        if (logger == null || logger.isEmpty()) {
+            return Response.status(BAD_REQUEST)
+                    .entity("logger is a required query parameter")
                     .build();
         }
+        log.info("Setting logger: {} to: {}", logger, level);
+        LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
+        context.getLogger(logger).setLevel(level == null || level.isEmpty() ? null :
+                                           Level.valueOf(level.toUpperCase(Locale.ROOT)));
+        return loglevels();
     }
 
     /**
      * Get a map of loggers and their level
      *
-     * @param headers     Request meta data
-     * @param httpRequest Request meta data
      * @return Unauthorized/{@link #loglevels()}
      */
     @Path("levels")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Response loglevels(@Context HttpHeaders headers,
-                              @Context HttpServletRequest httpRequest) {
-        String remoteIp = remoteAccess.remoteIp(headers, httpRequest);
-        log.trace("remoteIp = {}", remoteIp);
-        if (remoteAccess.isAdminIp(remoteIp)) {
-            return loglevels();
-        } else {
-            log.warn("Access to loglevel tried from: {}", remoteIp);
-            return Response.status(UNAUTHORIZED)
-                    .build();
-        }
-    }
-
-    /**
-     * Produce a map of logger to level
-     * <p>
-     * if level is null, then it is inherited
-     *
-     * @return map of log-levels
-     */
-    private Response loglevels() {
+    public Response loglevels() {
         HashMap<String, String> map = new HashMap<>();
         ( (LoggerContext) LoggerFactory.getILoggerFactory() )
                 .getLoggerList()

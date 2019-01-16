@@ -17,6 +17,8 @@ with drop-downs for each node, to set the given log-level.
 
 ## Access Control
 
+From `ee-remote-admin-access`
+
 Configuration of the bean is done with environment variables:
 
 * ADMIN_IP a comma separated list of ip, ip-range or net of admin allowed hosts (only ipv4).
