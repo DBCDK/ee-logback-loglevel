@@ -1,3 +1,16 @@
+if (env.BRANCH_NAME == 'master') {
+    properties([
+        disableConcurrentBuilds(),
+        pipelineTriggers([
+            triggers: [
+                [
+                    $class: 'jenkins.triggers.ReverseBuildTrigger',
+                    upstreamProjects: "../ee-remote-admin-access/master", threshold: hudson.model.Result.SUCCESS
+                ]
+            ]
+        ]),
+    ])
+}
 pipeline {
     agent { label "devel8" }
     tools {
@@ -24,7 +37,6 @@ pipeline {
                     } else {
                         println(" Building BRANCH_NAME == ${BRANCH_NAME}")
                     }
-
                 }
 
                 sh """
